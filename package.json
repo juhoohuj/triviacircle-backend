@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "http": "^0.0.1-security",
+    "node": "^21.6.2",
+    "nodemon": "^3.1.0",
+    "socket.io": "^4.7.4"
+  },
+  "name": "triviacircle-backend",
+  "version": "1.0.0",
+  "description": "backend for quiz game",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "juho ahonen",
+  "license": "ISC"
+}
