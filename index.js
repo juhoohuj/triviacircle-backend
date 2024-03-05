@@ -7,7 +7,16 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 // Store rooms and their connected users
-const rooms = {};
+const rooms = {
+    'room1': {
+        'user1': true,
+        'user2': true
+    },
+    'room2': {
+        'user3': true,
+        'user4': true
+    }
+};
 
 // Middleware to parse JSON requests
 app.use(express.json());
@@ -29,6 +38,7 @@ app.post('/joinroom', (req, res) => {
     if (rooms[roomId]) {
         rooms[roomId][username] = true;
         res.status(200).send(`Joined room ${roomId} as ${username}`);
+        console.log(`User ${username} joined room ${roomId}`);
     } else {
         res.status(404).send(`Room ${roomId} does not exist!`);
     }
