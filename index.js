@@ -25,26 +25,30 @@ app.use(express.json());
 
 // Endpoint to create a new room
 app.post("/createroom", (req, res) => {
-    const randomRoomId = Math.random().toString(36).substring(7);
+  const randomRoomId = Math.random().toString(36).substring(7);
 
   const { username } = req.body;
-    rooms[randomRoomId] = {};
-    rooms[randomRoomId][username] = true;
-    res.status(201).send(randomRoomId);
-    console.log(`User ${username} created room ${randomRoomId}`);
+  rooms[randomRoomId] = {};
+  rooms[randomRoomId][username] = true;
+  res.status(201).send(randomRoomId);
+  console.log(`User ${username} created room ${randomRoomId}`);
 });
 
 app.get("/rooms", (req, res) => {
   res.status(200).send(rooms);
 });
 
-// Endpoint to join a room
+// Endpoint to join a room and add a user to it and return the roomid
 app.post("/joinroom", (req, res) => {
   const { roomId, username } = req.body;
   console.log("attempting to join room" + roomId + " as " + username);
   if (rooms[roomId]) {
     rooms[roomId][username] = true;
-    res.status(200).send(`Joined room ${roomId} as ${username}`);
+    const roomObject = {
+      id: roomId,
+      username: username,
+    };
+    res.status(200).send(roomObject);
     console.log(`User ${username} joined room ${roomId}`);
   } else {
     res.status(404).send(`Room ${roomId} does not exist!`);
@@ -67,21 +71,24 @@ io.on("connection", (socket) => {
     if (rooms[roomId] && rooms[roomId][username]) {
       socket.join(roomId);
       io.to(roomId).emit("message", `${username} has joined the room`);
-      console.log(`User ${username} joined room ${roomId}`);
+      console.log(`Server: User ${username} joined room ${roomId}`);
     } else {
       socket.emit("errorMessage", "Room or username not found");
     }
   });
 
   // Handle leaving a room
-  socket.on("leaveRoom", (roomId, username) => {
+  socket.on("leaveRoom", (data) => {
+    const { roomId, username } = data;
     socket.leave(roomId);
     io.to(roomId).emit("message", `${username} has left the room`);
   });
 
   // Handle chat messages
-  socket.on("chatMessage", (roomId, username, message) => {
-    io.to(roomId).emit("message", `${username}: ${message}`);
+  socket.on("chatMessage", (data) => {
+    const { roomId, username, message } = data;
+    io.to(roomId).emit("message", { username, text: message }); // Emit message object
+    console.log(`Server: User ${username} sent message: ${message}`);
   });
 
   // Handle disconnection
