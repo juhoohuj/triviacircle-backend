@@ -51,6 +51,12 @@ app.post("/joinroom", (req, res) => {
   }
 });
 
+//get all players from one single room
+app.get("/room/:roomId", (req, res) => {
+  const { roomId } = req.params;
+  res.status(200).send(rooms[roomId]);
+});
+
 // Socket.IO event handling
 io.on("connection", (socket) => {
   console.log("New client connected");
