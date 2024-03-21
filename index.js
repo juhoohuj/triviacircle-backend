@@ -6,6 +6,7 @@ const socketIo = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+
 app.use(cors());
 
 // Store rooms and their connected users
@@ -42,7 +43,7 @@ app.get("/rooms", (req, res) => {
 app.post("/joinroom", (req, res) => {
   const { roomId, username } = req.body;
   console.log("attempting to join room" + roomId + " as " + username);
-  if (rooms[roomId]) {
+  if (rooms[roomId] && rooms[roomId][username]) {
     rooms[roomId][username] = true;
     const roomObject = {
       id: roomId,
@@ -84,11 +85,16 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("message", `${username} has left the room`);
   });
 
-  // Handle chat messages
+  // Handle sending messages
   socket.on("chatMessage", (data) => {
     const { roomId, username, message } = data;
-    io.to(roomId).emit("message", { username, text: message }); // Emit message object
-    console.log(`Server: User ${username} sent message: ${message}`);
+    io.to(roomId).emit("message", { username, text: message });
+  });
+
+  // Handle getting room details
+  socket.on("getRoom", (data) => {
+    const { roomCode } = data;
+    socket.emit("roomDetails", rooms[roomCode]);
   });
 
   // Handle disconnection
