@@ -91,6 +91,16 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("message", { username, text: message });
   });
 
+
+  socket.on("createRoom", (data) => {
+    const randomRoomId = Math.random().toString(36).substring(7);
+    const { username } = data;
+    rooms[randomRoomId] = {};
+    rooms[randomRoomId][username] = true;
+    socket.emit("roomCreated", randomRoomId);
+    console.log(`User ${username} created room ${randomRoomId}`);
+  });
+
   // Handle getting room details
   socket.on("getRoom", (data) => {
     const { roomCode } = data;
