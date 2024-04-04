@@ -42,12 +42,12 @@ app.get("/rooms", (req, res) => {
 // Endpoint to join a room and add a user to it and return the roomid
 app.post("/joinroom", (req, res) => {
   const { roomId, username } = req.body;
-  console.log("attempting to join room" + roomId + " as " + username);
-  if (rooms[roomId] && rooms[roomId][username]) {
+  console.log("attempting to join room " + roomId + " as " + username);
+  if (rooms[roomId]) {
     rooms[roomId][username] = true;
     const roomObject = {
-      id: roomId,
-      username: username,
+      roomId: roomId,
+      users: rooms[roomId],
     };
     res.status(200).send(roomObject);
     console.log(`User ${username} joined room ${roomId}`);
@@ -66,54 +66,79 @@ app.get("/room/:roomId", (req, res) => {
 
 // Socket.IO event handling
 io.on("connection", (socket) => {
-  console.log("New client connected");
+  console.log("Client connected");
 
   // Handle joining a room
   socket.on("joinRoom", (data) => {
     const { roomId, username } = data;
-    if (rooms[roomId] && rooms[roomId][username]) {
+    console.log(`Attempting to join room ${roomId} as ${username}`);
+    
+    // Check if the room exists
+    if (rooms[roomId]) {
+      // Join the room
       socket.join(roomId);
-      io.to(roomId).emit("message", `${username} has joined the room`);
-      console.log(`Server: User ${username} joined room ${roomId}`);
+      console.log(`Socket message: ${username} joined room ${roomId}`);
+      
+      // Broadcast to the room that a user has joined
+      io.to(roomId).emit("message", { username: "Room", text: `${username} has joined the room` });
+      
+      // Send room details to the joining user
+      socket.emit("roomDetails", { roomId, users: rooms[roomId] });
     } else {
-      socket.emit("errorMessage", "Room or username not found");
+      // If the room does not exist, send an error message
+      socket.emit("errorMessage", `Room ${roomId} does not exist`);
     }
   });
 
   // Handle leaving a room
   socket.on("leaveRoom", (data) => {
     const { roomId, username } = data;
+    console.log(`Leaving room ${roomId} as ${username}`);
+    
+    // Leave the room
     socket.leave(roomId);
+    
+    // Broadcast to the room that a user has left
     io.to(roomId).emit("message", `${username} has left the room`);
   });
 
   // Handle sending messages
   socket.on("chatMessage", (data) => {
     const { roomId, username, message } = data;
+    console.log(`Socket message: ${username} in room ${roomId} sent message: ${message}`);
+    
+    // Broadcast the message to the room
     io.to(roomId).emit("message", { username, text: message });
   });
 
-
+  // Handle creating a room
   socket.on("createRoom", (data) => {
     const randomRoomId = Math.random().toString(36).substring(7);
     const { username } = data;
+    
+    // Create the room
     rooms[randomRoomId] = {};
     rooms[randomRoomId][username] = true;
+    
+    // Join the room
+    socket.join(randomRoomId);
+    console.log(`User ${username} created and joined room ${randomRoomId}`);
+    
+    // Send room creation event to the user
     socket.emit("roomCreated", randomRoomId);
-    console.log(`User ${username} created room ${randomRoomId}`);
-  });
-
-  // Handle getting room details
-  socket.on("getRoom", (data) => {
-    const { roomCode } = data;
-    socket.emit("roomDetails", rooms[roomCode]);
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log("Client disconnected");
   });
+
+  // Add a catch-all event listener to log unrecognized events
+  socket.onAny((event, ...args) => {
+    console.log(`Received unrecognized event: ${event}`);
+  });
 });
+
 
 // Start the server
 const PORT = process.env.PORT || 3000;
