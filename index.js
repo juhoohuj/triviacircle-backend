@@ -1,3 +1,5 @@
+//Juho Ahonen
+
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -62,7 +64,7 @@ app.get("/room/:roomId", (req, res) => {
   res.status(200).send(rooms[roomId]);
 });
 
-//socket io
+//socket io, not working completely
 
 // Socket.IO event handling
 io.on("connection", (socket) => {
