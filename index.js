@@ -9,10 +9,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust this to your frontend's URL for security in production
+    origin: "*",
+    methods: ["GET", "POST"],
   },
 });
-
 // Initialize Firebase Admin SDK
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
 admin.initializeApp({
@@ -21,10 +21,13 @@ admin.initializeApp({
 });
 
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON requests, if you still need it for other purposes
+app.use(express.json()); // Midd ̰leware to parse JSON requests, if you still need it for other purposes
 
 // In-memory storage for rooms and their users
-const rooms = {};
+const rooms = {
+  room1: { user1: true, user2: true },
+  room2: { user3: true, user4: true },
+};
 
 io.on("connection", (socket) => {
   console.log("Client connected with ID:", socket.id);
