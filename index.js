@@ -75,6 +75,12 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("chatMessage", ({ roomId, username, message }) => {
+    io.to(roomId).emit("message", { username, text: message });
+    console.log(`Message from ${username} in room ${roomId}: ${message}`);
+    console.log(rooms)
+  });
+
   socket.on("disconnect", () => {
     // Find and remove the user from rooms
     Object.keys(rooms).forEach(roomId => {
@@ -87,17 +93,6 @@ io.on("connection", (socket) => {
     console.log("Client disconnected", socket.id);
   });
 
-  socket.on("chatMessage", ({ roomId, username, message }) => {
-    io.to(roomId).emit("message", { username, text: message });
-    console.log(`Message from ${username} in room ${roomId}: ${message}`);
-    console.log(rooms)
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected", socket.id);
-    // Additional logic can be added here to handle disconnection,
-    // such as cleaning up user data or notifying rooms of the departure.
-  });
 });
 
 const PORT = process.env.PORT || 3000;
