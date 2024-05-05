@@ -13,6 +13,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
+
+
 // Initialize Firebase Admin SDK
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
 admin.initializeApp({
