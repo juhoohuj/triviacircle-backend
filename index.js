@@ -13,6 +13,16 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
+
+const User = class {
+  constructor(username, score) {
+    this.username = username;
+    this.score = score;
+    this.captain = false;
+  }
+}
+
+
 // Initialize Firebase Admin SDK
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
 admin.initializeApp({
@@ -25,8 +35,14 @@ app.use(express.json()); // Midd ̰leware to parse JSON requests, if you still 
 
 // In-memory storage for rooms and their users
 const rooms = {
-  room1: { user1: true, user2: true },
-  room2: { user3: true, user4: true },
+  room1: {
+    user1: new User("user1", 0),
+    user2: new User("user2", 0),
+  },
+  room2: {
+    user3: new User("user3", 0),
+    user4: new User("user4", 0),
+  },
 };
 
 const emitRoomDetails = (roomId) => {
@@ -59,10 +75,33 @@ io.on("connection", (socket) => {
       socket.emit("joinRoomSuccess", { roomId, users: rooms[roomId] });
       io.to(roomId).emit("userJoined", username); // Notify others in the room
       emitRoomDetails(roomId); // Emit updated room details
+      //add the data to the database
+      const user = new User(username, 0);
+      const db = admin.database();
+      const ref = db.ref("rooms/" + roomId + "/" + username);
+      ref.set(user);
     } else {
       socket.emit("errorMessage", `Room ${roomId} does not exist.`);
     }
   });
+
+  socket.on("startGame", ({ roomId }) => {
+    io.to(roomId).emit("gameStarted");
+  });
+
+  socket.on("createRoom", ({ username }) => {
+    const roomId = Math.random().toString(36).substring(2, 9); // Generating a simple room ID
+    rooms[roomId] = { [username]: true }; // Adding the room with the user to the in-memory storage
+
+    socket.join(roomId);
+    console.log(`Room ${roomId} created and joined by ${username}`);
+
+    //add the data to the database
+    const user = new User(username, 0, true);
+
+    socket.emit("roomCreated", { roomId, username });
+    emitRoomDetails(roomId); // Emit room details after creation
+  } );
   
 
   socket.on("leaveRoom", ({ roomId, username }) => {
