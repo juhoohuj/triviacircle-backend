@@ -23,6 +23,8 @@ const User = class {
 }
 
 
+
+
 // Initialize Firebase Admin SDK
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
 admin.initializeApp({
