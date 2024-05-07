@@ -15,10 +15,12 @@ const io = new Server(server, {
 });
 
 const User = class {
-  constructor(username, score) {
+  constructor(username, captain) {
     this.username = username;
-    this.score = score;
-    this.captain = false;
+    this.score = 0;
+    this.captain = captain;
+    this.answerOrder = null;  
+
   }
 }
 
@@ -36,12 +38,12 @@ app.use(express.json()); // Midd ̰leware to parse JSON requests, if you still 
 // In-memory storage for rooms and their users
 const rooms = {
   room1: {
-    user1: new User("user1", 0),
-    user2: new User("user2", 0),
+    user1: new User("user1"),
+    user2: new User("user2"),
   },
   room2: {
-    user3: new User("user3", 0),
-    user4: new User("user4", 0),
+    user3: new User("user3"),
+    user4: new User("user4"),
   },
 };
 
@@ -56,12 +58,24 @@ const emitRoomDetails = (roomId) => {
 io.on("connection", (socket) => {
   console.log("Client connected with ID:", socket.id);
 
+  // Maps to track socket to user and room relationships
+  const socketToUser = {};
+  const socketToRoom = {};
+
   socket.on("createRoom", ({ username }) => {
-    const roomId = Math.random().toString(36).substring(2, 9); // Generating a simple room ID
-    rooms[roomId] = { [username]: true }; // Adding the room with the user to the in-memory storage
-  
+    const roomId = Math.random().toString(36).substring(2, 9);
+    rooms[roomId] = { [username]: new User(username, true) };
     socket.join(roomId);
+    socketToUser[socket.id] = username;
+    socketToRoom[socket.id] = roomId;
+
     console.log(`Room ${roomId} created and joined by ${username}`);
+
+    //add the data to the database
+    const user = new User(username, true);
+    const db = admin.database();
+    const ref = db.ref("rooms/" + roomId + "/users/" + username);
+    ref.set(user);
   
     socket.emit("roomCreated", { roomId, username });
     emitRoomDetails(roomId); // Emit room details after creation
@@ -69,16 +83,20 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", ({ roomId, username }) => {
     if (rooms[roomId]) {
-      rooms[roomId][username] = true;
+      rooms[roomId][username] = new User(username, false);
       socket.join(roomId);
+      socketToUser[socket.id] = username;
+      socketToRoom[socket.id] = roomId;
+
       console.log(`${username} joined room ${roomId}`);
+
       socket.emit("joinRoomSuccess", { roomId, users: rooms[roomId] });
       io.to(roomId).emit("userJoined", username); // Notify others in the room
       emitRoomDetails(roomId); // Emit updated room details
       //add the data to the database
-      const user = new User(username, 0);
+      const user = new User(username, false);
       const db = admin.database();
-      const ref = db.ref("rooms/" + roomId + "/" + username);
+      const ref = db.ref("rooms/" + roomId + "/users/" + username);
       ref.set(user);
     } else {
       socket.emit("errorMessage", `Room ${roomId} does not exist.`);
@@ -89,30 +107,36 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("gameStarted");
   });
 
-  socket.on("createRoom", ({ username }) => {
-    const roomId = Math.random().toString(36).substring(2, 9); // Generating a simple room ID
-    rooms[roomId] = { [username]: true }; // Adding the room with the user to the in-memory storage
-
-    socket.join(roomId);
-    console.log(`Room ${roomId} created and joined by ${username}`);
-
-    //add the data to the database
-    const user = new User(username, 0, true);
-
-    socket.emit("roomCreated", { roomId, username });
-    emitRoomDetails(roomId); // Emit room details after creation
-  } );
   
 
-  socket.on("leaveRoom", ({ roomId, username }) => {
-    if (rooms[roomId] && rooms[roomId][username]) {
-      delete rooms[roomId][username];
-      socket.leave(roomId);
-      console.log(`${username} left room ${roomId}`);
-      io.to(roomId).emit("userLeft", username); // Notify others in the room
-      emitRoomDetails(roomId); // Emit updated room details
+  socket.on("leaveRoom", () => {
+    const username = socketToUser[socket.id];
+    const roomId = socketToRoom[socket.id];
+    
+    if (username && roomId && rooms[roomId] && rooms[roomId][username]) {
+        delete rooms[roomId][username];
+        socket.leave(roomId);
+        io.to(roomId).emit("userLeft", username); // Notify other users in the room
+
+        // Delete from the database
+        const db = admin.database();
+        const ref = db.ref("rooms/" + roomId + "/users/" + username);
+        ref.remove().then(() => {
+            console.log(`${username} successfully removed from the database`);
+        }).catch(error => {
+            console.error(`Error removing ${username} from the database:`, error);
+        });
+
+        emitRoomDetails(roomId); // Emit updated room details
+        console.log(`${username} left room ${roomId}`);
+
+        // Clean up the mappings
+        delete socketToUser[socket.id];
+        delete socketToRoom[socket.id];
+    } else {
+        socket.emit("errorMessage", "You are not in any room or room does not exist.");
     }
-  });
+});
 
   socket.on("chatMessage", ({ roomId, username, message }) => {
     io.to(roomId).emit("message", { username, text: message });
@@ -121,15 +145,20 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // Find and remove the user from rooms
-    Object.keys(rooms).forEach(roomId => {
-      if (rooms[roomId][socket.username]) {
-        delete rooms[roomId][socket.username];
-        io.to(roomId).emit("userLeft", socket.username);
-        emitRoomDetails(roomId); // Emit updated room details
+      const username = socketToUser[socket.id];
+      const roomId = socketToRoom[socket.id];
+      if (username && roomId && rooms[roomId] && rooms[roomId][username]) {
+          delete rooms[roomId][username];
+          socket.leave(roomId);
+          io.to(roomId).emit("userLeft", username);
+          const db = admin.database();
+          const ref = db.ref("rooms/" + roomId + "/users/" + username);
+          ref.remove();
+          emitRoomDetails(roomId);
       }
-    });
-    console.log("Client disconnected", socket.id);
+      delete socketToUser[socket.id];
+      delete socketToRoom[socket.id];
+      console.log("Client disconnected", socket.id);
   });
 
 });
