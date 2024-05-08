@@ -15,12 +15,13 @@ const io = new Server(server, {
 });
 
 const User = class {
-  constructor(username, captain) {
+  constructor(username, captain, socketId) {
     this.username = username;
-    this.score = 0;
     this.captain = captain;
-    this.answerOrder = null;  
-
+    this.socketId = socketId;
+    this.score = 0;
+    this.answerOrder = null;
+    this.active = false;
   }
 }
 
@@ -34,6 +35,17 @@ admin.initializeApp({
 
 app.use(cors());
 app.use(express.json()); // Midd ̰leware to parse JSON requests, if you still need it for other purposes
+
+//clean the db when the server starts
+const db = admin.database();
+const ref = db.ref("rooms");
+ref.remove().then(() => {
+    console.log("Database cleaned successfully");
+}
+).catch(error => {
+    console.error("Error cleaning the database:", error);
+});
+
 
 // In-memory storage for rooms and their users
 const rooms = {
@@ -64,7 +76,7 @@ io.on("connection", (socket) => {
 
   socket.on("createRoom", ({ username }) => {
     const roomId = Math.random().toString(36).substring(2, 9);
-    rooms[roomId] = { [username]: new User(username, true) };
+    rooms[roomId] = { [username]: new User(username, true, socket.id)};
     socket.join(roomId);
     socketToUser[socket.id] = username;
     socketToRoom[socket.id] = roomId;
@@ -72,7 +84,7 @@ io.on("connection", (socket) => {
     console.log(`Room ${roomId} created and joined by ${username}`);
 
     //add the data to the database
-    const user = new User(username, true);
+    const user = new User(username, true, socket.id);
     const db = admin.database();
     const ref = db.ref("rooms/" + roomId + "/users/" + username);
     ref.set(user);
@@ -83,7 +95,7 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", ({ roomId, username }) => {
     if (rooms[roomId]) {
-      rooms[roomId][username] = new User(username, false);
+      rooms[roomId][username] = new User(username, false, socket.id);
       socket.join(roomId);
       socketToUser[socket.id] = username;
       socketToRoom[socket.id] = roomId;
@@ -94,7 +106,7 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("userJoined", username); // Notify others in the room
       emitRoomDetails(roomId); // Emit updated room details
       //add the data to the database
-      const user = new User(username, false);
+      const user = new User(username, false, socket.id);
       const db = admin.database();
       const ref = db.ref("rooms/" + roomId + "/users/" + username);
       ref.set(user);
