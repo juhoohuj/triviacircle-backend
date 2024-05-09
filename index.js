@@ -173,6 +173,10 @@ io.on("connection", (socket) => {
       console.log("Client disconnected", socket.id);
   });
 
+  socket.on("nextQuestion", ({ roomId }) => {
+    io.to(roomId).emit("nextQuestion");
+  });
+
 });
 
 const PORT = process.env.PORT || 3000;
