@@ -94,6 +94,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("joinRoom", ({ roomId, username }) => {
+    console.log("Attempting to join room:", roomId, "with username:", username);
     if (rooms[roomId]) {
       rooms[roomId][username] = new User(username, false, socket.id);
       socket.join(roomId);
@@ -171,6 +172,14 @@ io.on("connection", (socket) => {
       delete socketToUser[socket.id];
       delete socketToRoom[socket.id];
       console.log("Client disconnected", socket.id);
+  });
+
+  socket.on("answer", ({ roomId, username, answer }) => {
+    io.to(roomId).emit("answer", { username, answer });
+  });
+
+  socket.on("updateScore", ({ roomId, username, score }) => {
+    io.to(roomId).emit("updateScore", { username, score });
   });
 
   socket.on("nextQuestion", ({ roomId }) => {
