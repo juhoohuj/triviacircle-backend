@@ -30,11 +30,11 @@ const User = class {
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://triviacircle-aab16-default-rtdb.europe-west1.firebasedatabase.app/", // Use your Firebase Database URL
+  databaseURL: process.env.FIREBASE_URL, // Use your Firebase Database URL
 });
 
 app.use(cors());
-app.use(express.json()); // Midd ̰leware to parse JSON requests, if you still need it for other purposes
+app.use(express.json());
 
 //clean the db when the server starts
 const db = admin.database();
