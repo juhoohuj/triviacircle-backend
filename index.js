@@ -1,11 +1,21 @@
+
 require("dotenv").config();
+
 const express = require("express");
+const session = require("express-session");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const admin = require("firebase-admin");
 
 const app = express();
+
+app.use(
+  session({
+    secret: process.env.SECRET,
+  })
+);
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -13,6 +23,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
+
+
 
 const User = class {
   constructor(username, captain, socketId) {
