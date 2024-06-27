@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -24,8 +23,6 @@ const io = new Server(server, {
   },
 });
 
-
-
 const User = class {
   constructor(username, captain, socketId) {
     this.username = username;
@@ -35,8 +32,7 @@ const User = class {
     this.answerOrder = null;
     this.active = false;
   }
-}
-
+};
 
 // Initialize Firebase Admin SDK
 const serviceAccount = require(process.env.FIREBASE_KEY_PATH);
@@ -48,28 +44,17 @@ admin.initializeApp({
 app.use(cors());
 app.use(express.json());
 
-//clean the db when the server starts
+// Clean the db when the server starts
 const db = admin.database();
 const ref = db.ref("rooms");
 ref.remove().then(() => {
     console.log("Database cleaned successfully");
-}
-).catch(error => {
+}).catch(error => {
     console.error("Error cleaning the database:", error);
 });
 
-
 // In-memory storage for rooms and their users
-const rooms = {
-  room1: {
-    user1: new User("user1"),
-    user2: new User("user2"),
-  },
-  room2: {
-    user3: new User("user3"),
-    user4: new User("user4"),
-  },
-};
+const rooms = {};
 
 const emitRoomDetails = (roomId) => {
   if (rooms[roomId]) {
@@ -77,7 +62,6 @@ const emitRoomDetails = (roomId) => {
     io.to(roomId).emit('roomDetails', { roomId, users });
   }
 };
-
 
 io.on("connection", (socket) => {
   console.log("Client connected with ID:", socket.id);
@@ -95,7 +79,7 @@ io.on("connection", (socket) => {
 
     console.log(`Room ${roomId} created and joined by ${username}`);
 
-    //add the data to the database
+    // Add the data to the database
     const user = new User(username, true, socket.id);
     const db = admin.database();
     const ref = db.ref("rooms/" + roomId + "/users/" + username);
@@ -118,7 +102,7 @@ io.on("connection", (socket) => {
       socket.emit("joinRoomSuccess", { roomId, users: rooms[roomId] });
       io.to(roomId).emit("userJoined", username); // Notify others in the room
       emitRoomDetails(roomId); // Emit updated room details
-      //add the data to the database
+      // Add the data to the database
       const user = new User(username, false, socket.id);
       const db = admin.database();
       const ref = db.ref("rooms/" + roomId + "/users/" + username);
@@ -131,8 +115,6 @@ io.on("connection", (socket) => {
   socket.on("startGame", ({ roomId }) => {
     io.to(roomId).emit("gameStarted");
   });
-
-  
 
   socket.on("leaveRoom", () => {
     const username = socketToUser[socket.id];
@@ -161,7 +143,7 @@ io.on("connection", (socket) => {
     } else {
         socket.emit("errorMessage", "You are not in any room or room does not exist.");
     }
-});
+  });
 
   socket.on("chatMessage", ({ roomId, username, message }) => {
     io.to(roomId).emit("message", { username, text: message });
@@ -198,6 +180,17 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("nextQuestion");
   });
 
+  // Subscribe to room
+  socket.on("subscribeToRoom", (roomId) => {
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} subscribed to room ${roomId}`);
+  });
+
+  // Unsubscribe from room
+  socket.on("unsubscribeFromRoom", (roomId) => {
+    socket.leave(roomId);
+    console.log(`Socket ${socket.id} unsubscribed from room ${roomId}`);
+  });
 });
 
 const PORT = process.env.PORT || 3000;
